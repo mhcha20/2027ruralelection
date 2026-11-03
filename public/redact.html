@@ -60,7 +60,7 @@ body:not(.preview) .box{background:#000}
  <button id="delTpl">刪除所選範本</button><br>
  <button id="expTpl">匯出範本檔</button>
  <label class="file" style="background:var(--bg);color:var(--fg);border-color:var(--bd)">匯入範本檔<input id="impTpl" type="file" accept=".json,application/json" hidden></label>
- <div class="note">只會儲存黑格位置，<b>唔會</b>儲存表格內容。範本存喺網站伺服器，<b>任何電腦</b>開呢個網站都會見到同一套範本（冇密碼，所有人共用）。「匯出範本檔」可作備份。</div>
+ <div class="note">只會儲存黑格位置，<b>唔會</b>儲存表格內容。範本存喺網站伺服器，<b>任何電腦</b>開呢個網站都會見到同一套範本（儲存／刪除需要密碼，瀏覽器會記住密碼直至關閉分頁）。「匯出範本檔」可作備份。</div>
 
  <h3>5. 匯出</h3>
  <button id="export" class="pri" disabled>下載已遮蓋 PDF</button>
@@ -89,8 +89,15 @@ const LS='redactMyTemplates';
 let builtin={}, mineCache={};
 const loadMine=()=>mineCache;
 async function refreshMine(){ try{ const r=await fetch('/api/templates',{cache:'no-store'}); if(r.ok) mineCache=await r.json(); }catch{} }
-async function putTpl(key,t){ const r=await fetch('/api/templates/'+key,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(t)}); if(!r.ok) throw new Error('儲存失敗'); await refreshMine(); }
-async function dropTpl(key){ await fetch('/api/templates/'+key,{method:'DELETE'}); await refreshMine(); }
+const PWK='redactPw';
+function getPw(force){ let pw=force?null:sessionStorage.getItem(PWK); if(!pw){ pw=prompt('請輸入範本管理密碼：'); if(pw===null) throw new Error('cancel'); sessionStorage.setItem(PWK,pw);} return pw; }
+async function authed(url,opt){ let force=false;
+  for(let i=0;i<3;i++){ const pw=getPw(force); const r=await fetch(url,{...opt,headers:{...(opt.headers||{}),'x-password':pw}});
+    if(r.status===401){ sessionStorage.removeItem(PWK); alert('密碼錯誤'); force=true; continue; }
+    if(!r.ok) throw new Error((await r.json().catch(()=>({}))).error||'失敗'); return r; }
+  throw new Error('密碼錯誤'); }
+async function putTpl(key,t){ await authed('/api/templates/'+key,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(t)}); await refreshMine(); }
+async function dropTpl(key){ await authed('/api/templates/'+key,{method:'DELETE'}); await refreshMine(); }
 // one-off: move templates saved in this browser (old version) to the server
 async function migrateLocal(){ try{ const old=JSON.parse(localStorage.getItem(LS)||'{}'); const keys=Object.keys(old); if(!keys.length) return;
   for(const k of keys) await putTpl(k,old[k]); localStorage.removeItem(LS); console.log('migrated',keys.length,'local templates'); }catch{} }
@@ -117,10 +124,10 @@ $('saveTpl').onclick=async()=>{
   if(!name) return;
   const key=Object.entries(mine).find(([k,t])=>t.name===name)?.[0]||('my_'+Date.now());
   try{ await putTpl(key,{name,pages:out}); fillSelect(key); alert(`已儲存「${name}」（${n} 個黑格）。任何電腦開呢個網站都會見到。`); }
-  catch(e){ alert('儲存失敗，請再試或用「匯出範本檔」備份'); }
+  catch(e){ if(e.message!=='cancel') alert('儲存失敗：'+e.message+'。可用「匯出範本檔」備份'); }
 };
 $('delTpl').onclick=async()=>{const k=$('tpl').value, mine=loadMine(); if(!(k in mine)) return;
-  if(confirm(`刪除範本「${mine[k].name}」？（所有電腦都會一齊刪除）`)){await dropTpl(k); fillSelect();}};
+  if(confirm(`刪除範本「${mine[k].name}」？（所有電腦都會一齊刪除）`)){ try{await dropTpl(k); fillSelect();}catch(e){ if(e.message!=='cancel') alert('刪除失敗：'+e.message);} }};
 $('expTpl').onclick=()=>{const mine=loadMine(); if(!Object.keys(mine).length) return alert('未有我的範本');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(mine,null,1)],{type:'application/json'}));
   a.download='遮蓋範本.json'; a.click();};

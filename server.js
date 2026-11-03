@@ -72,6 +72,9 @@ http.createServer(async (req, res) => {
     if (tm) {
       const key = tm[1];
       if (req.method === 'GET' && !key) return json(readTpl());
+      const PW = process.env.TEMPLATES_PASSWORD;
+      if (!PW) return json({ error: 'TEMPLATES_PASSWORD not configured' }, 503);
+      if ((req.headers['x-password'] || '') !== PW) return json({ error: 'wrong password' }, 401);
       if (req.method === 'PUT' && key) {
         let body = ''; for await (const d of req) { body += d; if (body.length > 300000) return json({ error: 'too large' }, 413); }
         const t = JSON.parse(body); if (!validTpl(t)) return json({ error: 'bad template' }, 400);

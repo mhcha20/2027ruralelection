@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2027 鄉郊代表選舉指引問答</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a2e;--mut:#666;--card:#f4f5f9;--acc:#2f6f4f;--bd:#dde}
+@media(prefers-color-scheme:dark){:root{--bg:#14141f;--fg:#e8e8f0;--mut:#9a9ab0;--card:#1e1e2e;--acc:#6fcf97;--bd:#33334a}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.7 system-ui,"Noto Sans TC",sans-serif}
+main{max-width:760px;margin:0 auto;padding:24px 16px 80px}
+h1{font-size:1.4rem;margin:.2em 0}.sub{color:var(--mut);margin:0 0 20px;font-size:.9rem}
+form{display:flex;gap:8px}input{flex:1;padding:12px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--fg);font:inherit}
+button{padding:12px 18px;border:0;border-radius:8px;background:var(--acc);color:#fff;font:inherit;cursor:pointer}
+.chips{margin:12px 0;display:flex;flex-wrap:wrap;gap:6px}.chips span{background:var(--card);border:1px solid var(--bd);border-radius:99px;padding:3px 12px;font-size:.85rem;cursor:pointer}
+.ans{background:var(--card);border-left:4px solid var(--acc);padding:12px 16px;border-radius:8px;white-space:pre-wrap;margin:16px 0}
+.src{border:1px solid var(--bd);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.92rem}
+.src a{color:var(--acc);font-weight:600;text-decoration:none}.src p{margin:.4em 0 0;color:var(--mut)}
+.note{color:var(--mut);font-size:.85rem}
+</style></head><body><main>
+<h1>2027 鄉郊代表選舉指引問答</h1>
+<p class="sub">資料來源：<a href="https://www.eac.hk/tc/elections/rural/rr_guide.html" style="color:var(--acc)">選管會《鄉郊代表選舉活動指引》</a>。僅供參考，一切以官方指引為準。</p>
+<form id="f"><input id="q" placeholder="例如：選舉廣告有甚麼限制？提名需要多少人？" autofocus><button>查詢</button></form>
+<div class="chips" id="chips"></div>
+<div id="out"></div>
+<script>
+const out=document.getElementById('out'),q=document.getElementById('q');
+['提名候選人程序','選舉開支上限','選舉廣告','投票站拉票','舞弊及非法行為','投訴程序'].forEach(t=>{const s=document.createElement('span');s.textContent=t;s.onclick=()=>{q.value=t;go()};chips.append(s)});
+const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+async function go(e){e&&e.preventDefault();const v=q.value.trim();if(!v)return;out.innerHTML='<p class="note">查詢中…</p>';
+ try{const r=await fetch('/api/ask',{method:'POST',body:JSON.stringify({q:v})});const j=await r.json();if(j.error)throw new Error(j.error);
+ out.innerHTML=(j.answer?`<div class="ans">${esc(j.answer)}</div>`:'<p class="note">（未設定 AI 回答，以下為最相關的指引段落）</p>')+
+ (j.sources.length?'<h3>相關指引段落</h3>':'<p>找不到相關內容，請換個關鍵字。</p>')+
+ j.sources.map((s,i)=>`<div class="src"><a href="${s.url}" target="_blank" rel="noopener">[${i+1}] ${esc(s.title)}　第${s.page}頁</a><p>${esc(s.text.slice(0,260))}…</p></div>`).join('')
+ }catch(err){out.innerHTML=`<p class="note">錯誤：${esc(err.message)}</p>`}}
+f.onsubmit=go;
+</script></main></body></html>

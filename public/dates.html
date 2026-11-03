@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2027 鄉郊選舉重要日子</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a2e;--mut:#666;--card:#f4f5f9;--acc:#2f6f4f;--bd:#dde;--hot:#c0392b;--past:#999}
+@media(prefers-color-scheme:dark){:root{--bg:#14141f;--fg:#e8e8f0;--mut:#9a9ab0;--card:#1e1e2e;--acc:#6fcf97;--bd:#33334a;--hot:#ff7b6b;--past:#666}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 system-ui,"Noto Sans TC",sans-serif}
+main{max-width:860px;margin:0 auto;padding:24px 16px 80px}
+h1{font-size:1.4rem;margin:.2em 0}.sub{color:var(--mut);font-size:.9rem;margin:0 0 16px}.sub a{color:var(--acc)}
+.key{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 22px}
+.key div{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;flex:1;min-width:200px}
+.key b{display:block;font-size:1.15rem}.key span{color:var(--mut);font-size:.85rem}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.filters label{background:var(--card);border:1px solid var(--bd);border-radius:99px;padding:3px 12px;font-size:.85rem;cursor:pointer}
+.filters input{margin-right:4px}
+h2{font-size:1.05rem;margin:26px 0 8px;border-bottom:1px solid var(--bd);padding-bottom:4px;color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:.95rem}
+td{padding:9px 8px;border-bottom:1px solid var(--bd);vertical-align:top}
+td.d{white-space:nowrap;font-weight:600;width:9.5em}td.d small{display:block;font-weight:400;color:var(--mut)}
+tr.past td{color:var(--past)}tr.past td.d{text-decoration:line-through}
+tr.dl td.d{color:var(--hot)}
+.tag{display:inline-block;font-size:.72rem;padding:0 6px;border-radius:4px;background:var(--card);border:1px solid var(--bd);color:var(--mut);margin-right:4px;vertical-align:middle}
+.src{display:block;font-size:.8rem;margin-top:2px}.src a{color:var(--acc);text-decoration:none}
+.note{background:var(--card);border-left:4px solid var(--acc);padding:10px 14px;border-radius:8px;font-size:.88rem;margin-top:28px}
+@media print{.filters,.note,.sub a{display:none}}
+</style></head><body><main>
+<h1>2027 鄉郊一般選舉：重要日子一覽</h1>
+<p class="sub">整理自民政事務總署《候選人提名指引》簡報（2026年10月）及選管會《鄉郊代表選舉活動指引》。每項附來源頁碼，請以官方文件為準。
+<a href="/">← 返回指引問答</a> · <a href="/redact.html">遮蓋工具</a></p>
+
+<div class="key">
+ <div><b>2026年11月24日 – 12月7日</b><span>提名期（最後一日下午5時截止）</span></div>
+ <div><b>2027年1月17日（日）</b><span>原居民代表及居民代表選舉投票日</span></div>
+ <div><b>2027年1月24日（日）</b><span>街坊代表選舉投票日</span></div>
+ <div><b>2026年12月20日（日）</b><span>漁民代表選舉投票日</span></div>
+</div>
+
+<div class="filters">
+ <label><input type="checkbox" checked data-f="cand">候選人須知</label>
+ <label><input type="checkbox" checked data-f="ro">選舉主任辦事處／民政處內部</label>
+ <label><input type="checkbox" checked data-f="past">顯示已過去嘅日子</label>
+</div>
+
+<div id="list"></div>
+
+<div class="note">
+<b>注意：</b>呢個時間表係由指引文件整理，唔係官方發出。「內部」項目係簡報俾選舉主任辦事處同事嘅工作限期，候選人唔使跟。
+如憲報公告或民政處通知有更新，以更新為準。有問題可致電選舉事務處或有關選舉主任辦事處。
+</div>
+<script>
+const G='https://www.eac.hk/pdf/village/ch/';
+const S={ng:p=>`<a href="/docs/nomination_guide.pdf#page=${p}" target="_blank">提名指引簡報 p.${p}</a>`,
+         g:(c,p,t)=>`<a href="${G}${c}.pdf#page=${p}" target="_blank">選管會指引 ${t} 第${p}頁</a>`};
+// [date(ISO) or 'rel', label, who(cand|ro), text, source, deadline?]
+const E=[
+['2026-11-13','星期五','ro','刊登選舉日期、提名期及委任選舉主任嘅憲報公告；民政處開始派發提名表格、候選人資料冊等文件',S.ng(2)],
+['2026-11-13','至公佈結果','ro','選舉主任辦事處安排同事當值（無競逐至12月21日；有競逐村代表至1月22日、街坊代表至1月29日）',S.ng(132)],
+['2026-11-18','星期三','ro','各區民政處接收候選人資料冊',S.ng(2)],
+['2026-11-23','星期一','ro','於鄉郊地區展示宣傳橫額',S.ng(2)],
+['2026-11-24','星期二','cand','<b>提名期開始。</b>候選人須親身到選舉主任辦事處遞交提名表格。辦公時間：星期一至五上午9時至下午5時，星期六上午9時至中午12時（公眾假期除外）',S.ng(4)],
+['2026-11-24','至公佈結果','ro','已遮蓋個人資料嘅提名表格副本公開讓市民查閱（無競逐至12月21日；有競逐村代表至1月22日、街坊代表至1月29日）',S.ng(133)],
+['2026-12-07','星期一 下午5時','cand','<b>提名期結束。</b>最後遞交或更改提名表格嘅時限，亦係遞交候選人簡介方格表及照片嘅限期。逾時民政處唔會再接收',S.ng(4)+' · '+S.ng(22),1],
+['2026-12-07','星期一 下午5時','cand','退選限期：欲退出選舉嘅候選人須於提名期結束前親自交回「候選人退選通知書」(HAD/C5)',S.ng(39),1],
+['2026-12-08','星期二 中午','ro','確實所有指定投票站及點票站資料並通知總署',S.ng(148)],
+['2026-12-09','星期三','ro','將投票站位置圖上載至 RREMIS',S.ng(150)],
+['2026-12-10','星期四','ro','選舉主任須於此日或之前決定提名是否有效，並於提名表格第四部分簽署',S.ng(28),1],
+['2026-12-11','星期五','cand','候選人編號抽籤（或選舉主任指定日期）',S.ng(149)],
+['2026-12-11','星期五','ro','核實投票站／點票站草擬公告（中午前）；列印投票站位置圖交選舉主任簽署',S.ng(148)+' · '+S.ng(150)],
+['2026-12-14','星期一 晚上7:30','cand','候選人簡介會，沙田圓洲角社區會堂',S.ng(24)],
+['2026-12-14','星期一','ro','核實無競逐選舉妥為選出及未能完成選舉嘅草擬公告',S.ng(149)],
+['2026-12-15','星期二 中午','ro','核實有效提名（含候選人編號）草擬公告',S.ng(149)],
+['2026-12-20','星期日','cand','<b>漁民代表選舉投票日</b>（按 2026 FR 提名表格）','FR 提名表格首頁'],
+['2026-12-21','星期一 下午5時','cand','如需製作供視障人士閱讀嘅候選人簡介文字版本，須於此前電郵表格至總署 (rre@had.gov.hk)',S.ng(23),1],
+['2026-12-21','星期一','ro','憲報刊登投票站、點票站及投票時間公告；有效提名公告；無競逐選舉妥為選出公告。提名期結束後14日內將投票站位置圖及佈置圖派發予候選人',S.ng(148)+' · '+S.ng(150)],
+['2027-01-06','星期三','ro','村代表選舉：將選舉代理人、監察投票／點票代理人、選舉開支代理人資料輸入 RREMIS 嘅限期',S.ng(104)+' · '+S.ng(151)],
+['2027-01-07','（投票日前10天）','cand','投票日前最少十天：選民收到投票通知；民政事務總署署長憲報公布投票時間及投票站地點（村代表）',S.g('chap04',2,'第四章')+' · '+S.g('chap04',4,'第四章')],
+['2027-01-12','星期二','ro','行動不便選民申請編配指定特別投票站（只限村代表選舉）通知總署限期',S.ng(152)],
+['2027-01-13','星期三','ro','街坊代表選舉：代理人資料輸入 RREMIS 嘅限期',S.ng(104)],
+['2027-01-17','星期日','cand','<b>原居民代表及居民代表選舉投票日</b>',S.ng(1),1],
+['2027-01-19','星期二','cand','自動當選（無競逐）嘅鄉郊代表交回已簽署鄉郊代表誓言嘅限期',S.ng(154),1],
+['2027-01-22','星期五','ro','村代表選舉：公眾查閱提名表格及辦事處當值安排結束（有競逐）',S.ng(133)],
+['2027-01-24','星期日','cand','<b>街坊代表選舉投票日</b>',S.ng(1),1],
+['2027-01-29','星期五','ro','街坊代表選舉：公眾查閱提名表格及辦事處當值安排結束（有競逐）',S.ng(133)],
+['2027-02-01','星期一 下午6時','cand','村代表選舉候選人：妥善銷毀所索取嘅選民資料，並交回「確認已妥善銷毀選民資料的回條」(HAD/C16b)',S.ng(20),1],
+['2027-02-10','星期三 下午6時','cand','街坊代表選舉候選人：交回「確認已妥善銷毀選民資料的回條」(HAD/C16b) 限期',S.ng(20),1],
+['2027-02-22','星期一','cand','1月17日選出嘅村代表：交回已簽署鄉郊代表誓言嘅限期（憲報刊登結果起30日內）',S.ng(154),1],
+['2027-03-01','星期一','cand','1月24日選出嘅街坊代表：交回已簽署鄉郊代表誓言嘅限期',S.ng(154),1],
+['rel','選舉結束後30天內','cand','<b>提交選舉申報書</b>（選舉開支及選舉捐贈申報書及聲明書），經選舉主任向民政事務總署署長提交。選舉於憲報公布結果當日結束',S.g('chap15',9,'第十五章'),1],
+['rel','付款後30天內','cand','選舉申報書內列為未付嘅索款，付款後30天內補交每項500元或以上嘅發票及收據',S.g('chap15',10,'第十五章')],
+['rel','憲報公布結果後2個月內','cand','提出選舉呈請嘅限期（向原訟法庭提交）',S.g('chap05',2,'第五章')],
+['rel','原訟法庭判決後14個工作天內','cand','就選舉呈請裁決向終審法院申請上訴嘅動議通知限期',S.g('chap05',2,'第五章')],
+];
+const today=new Date().toISOString().slice(0,10);
+const months={};
+for(const e of E){const k=e[0]==='rel'?'rel':e[0].slice(0,7);(months[k]=months[k]||[]).push(e);}
+const mName=k=>k==='rel'?'選舉後嘅相對限期':`${k.slice(0,4)}年${+k.slice(5)}月`;
+function render(){
+ const f=Object.fromEntries([...document.querySelectorAll('[data-f]')].map(i=>[i.dataset.f,i.checked]));
+ let h='';
+ for(const k of Object.keys(months).sort((a,b)=>a==='rel'?1:b==='rel'?-1:a.localeCompare(b))){
+  const rows=months[k].filter(e=>f[e[2]]&&(f.past||e[0]==='rel'||e[0]>=today));
+  if(!rows.length) continue;
+  h+=`<h2>${mName(k)}</h2><table>`;
+  for(const [d,lab,who,txt,src,dl] of rows){
+   const past=d!=='rel'&&d<today;
+   const ds=d==='rel'?lab:`${+d.slice(5,7)}月${+d.slice(8)}日<small>${lab}</small>`;
+   h+=`<tr class="${past?'past':''} ${dl?'dl':''}"><td class="d">${ds}</td><td><span class="tag">${who==='ro'?'內部':'候選人'}</span>${dl?'<span class="tag" style="color:var(--hot)">限期</span>':''}${txt}<span class="src">來源：${src}</span></td></tr>`;
+  }
+  h+='</table>';
+ }
+ document.getElementById('list').innerHTML=h;
+}
+document.querySelectorAll('[data-f]').forEach(i=>i.onchange=render); render();
+</script>
+</main></body></html>

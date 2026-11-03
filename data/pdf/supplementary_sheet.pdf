@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width">
+    <meta name="format-detection" content="telephone=no">
+
+    <title>Electoral Affairs Commission - File Not Found</title>
+
+    <link rel="stylesheet" href="css/main.css">
+	<script type="text/javascript">function delayer(){window.location = "/"}</script>
+</head>
+<style>
+	h1 {
+		font-size: 20px;
+		font-weight: 700;
+	}
+	p {
+		font-size: 20px;
+	}
+	a {
+		color: #eb6100;
+		background-color: transparent;
+		text-decoration: none;
+	}
+</style>
+<body onload="setTimeout('delayer()', 5000)">
+
+<div class="site-wrapper page-en">
+    <div class="page page-site-map">
+        
+            <div class="container" style="background-color:#fffbeb;margin:0 auto">
+			<div class="logo-en">
+				<a href="/"><img src="/images/common/eac_horizontal_70mm.png" alt="Electoral Affairs Commission" title="Electoral Affairs Commission" style="max-width:300px"></a>
+			</div>
+                <div class="page-section">
+					<h1>對不起，我們找不到你要的網頁。</h1>
+					<p>你將於 5 秒內被轉往選舉管理委員會網站登陸頁。你亦可按以下連結瀏覽選舉管理委員會網站登陸頁。</p>
+					<p><a href="/">https://www.eac.hk</a></p>
+					<p>謝謝你的支持。</p>
+					
+					<span style="font-family:Noto Sans SC"><h1>对不起，我们找不到你要的网页。</h1>
+					<p>你将于 5 秒内被转往选举管理委员会网站登陆页。你亦可按以下连结浏览选举管理委员会网站登陆页。</p>
+					<p><a href="/">https://www.eac.hk</a></p>
+					<p>谢谢你的支持。</p></span>
+					
+					<h1>Sorry, the page you requested cannot be found.</h1>
+					<p>You will be re-directed to the landing page of the EAC Homepage in 5 seconds.  You can also click the following link to go to the landing page of the EAC Homepage.</p>
+					<p><a href="/">https://www.eac.hk</a></p>
+					<p>Thank you for your support.</p>
+				</div>
+            </div>
+        
+	</div>
+
+</div>
+</body>
+</html>

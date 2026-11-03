@@ -60,7 +60,7 @@ body:not(.preview) .box{background:#000}
  <button id="delTpl">刪除所選範本</button><br>
  <button id="expTpl">匯出範本檔</button>
  <label class="file" style="background:var(--bg);color:var(--fg);border-color:var(--bd)">匯入範本檔<input id="impTpl" type="file" accept=".json,application/json" hidden></label>
- <div class="note">只會儲存黑格位置，<b>唔會</b>儲存表格內容。範本存喺呢部機嘅瀏覽器；轉機或清除瀏覽器資料前，請先「匯出範本檔」。</div>
+ <div class="note">只會儲存黑格位置，<b>唔會</b>儲存表格內容。範本存喺網站伺服器，<b>任何電腦</b>開呢個網站都會見到同一套範本（冇密碼，所有人共用）。「匯出範本檔」可作備份。</div>
 
  <h3>5. 匯出</h3>
  <button id="export" class="pri" disabled>下載已遮蓋 PDF</button>
@@ -86,9 +86,14 @@ const $=id=>document.getElementById(id), pagesEl=$('pages');
 let pages=[]; // {canvas, el, boxes:[{x,y,w,h,label,el}]}
 let sel=null, selPage=null, templates=null, baseName='nomination';
 const LS='redactMyTemplates';
-const loadMine=()=>{try{return JSON.parse(localStorage.getItem(LS))||{}}catch{return {}}};
-const saveMine=m=>{try{localStorage.setItem(LS,JSON.stringify(m));return true}catch{alert('瀏覽器唔允許儲存（可能係私密瀏覽模式），請用「匯出範本檔」');return false}};
-let builtin={};
+let builtin={}, mineCache={};
+const loadMine=()=>mineCache;
+async function refreshMine(){ try{ const r=await fetch('/api/templates',{cache:'no-store'}); if(r.ok) mineCache=await r.json(); }catch{} }
+async function putTpl(key,t){ const r=await fetch('/api/templates/'+key,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(t)}); if(!r.ok) throw new Error('儲存失敗'); await refreshMine(); }
+async function dropTpl(key){ await fetch('/api/templates/'+key,{method:'DELETE'}); await refreshMine(); }
+// one-off: move templates saved in this browser (old version) to the server
+async function migrateLocal(){ try{ const old=JSON.parse(localStorage.getItem(LS)||'{}'); const keys=Object.keys(old); if(!keys.length) return;
+  for(const k of keys) await putTpl(k,old[k]); localStorage.removeItem(LS); console.log('migrated',keys.length,'local templates'); }catch{} }
 function allTemplates(){return {...builtin,...loadMine()};}
 function fillSelect(keep){
   const s=$('tpl'), mine=loadMine(), cur=keep||s.value; s.innerHTML='';
@@ -100,9 +105,9 @@ function fillSelect(keep){
   if(cur&&[...s.options].some(o=>o.value===cur)) s.value=cur;
   $('delTpl').disabled=!(s.value in mine);
 }
-fetch('redact-templates.json').then(r=>r.json()).then(t=>{builtin=t;templates=t;fillSelect();});
+fetch('redact-templates.json').then(r=>r.json()).then(async t=>{builtin=t;templates=t;await refreshMine();await migrateLocal();fillSelect();});
 $('tpl').onchange=()=>fillSelect();
-$('saveTpl').onclick=()=>{
+$('saveTpl').onclick=async()=>{
   const start=(+$('startPage').value||1)-1, out={}; let n=0;
   pages.forEach((p,i)=>{ if(i<start||!p.boxes.length) return;
     out[i-start+1]=p.boxes.map(b=>({x:+b.x.toFixed(4),y:+b.y.toFixed(4),w:+b.w.toFixed(4),h:+b.h.toFixed(4),label:b.label||''})); n+=p.boxes.length;});
@@ -111,18 +116,18 @@ $('saveTpl').onclick=()=>{
   const name=prompt('範本名稱（同名會覆蓋）：',mine[cur]?.name||(builtin[cur]?.name+'（調整版）'));
   if(!name) return;
   const key=Object.entries(mine).find(([k,t])=>t.name===name)?.[0]||('my_'+Date.now());
-  mine[key]={name,pages:out,saved:new Date().toISOString()};
-  if(saveMine(mine)){fillSelect(key); alert(`已儲存「${name}」（${n} 個黑格）。下次揀返呢個範本再撳「套用」就得。`);}
+  try{ await putTpl(key,{name,pages:out}); fillSelect(key); alert(`已儲存「${name}」（${n} 個黑格）。任何電腦開呢個網站都會見到。`); }
+  catch(e){ alert('儲存失敗，請再試或用「匯出範本檔」備份'); }
 };
-$('delTpl').onclick=()=>{const k=$('tpl').value, mine=loadMine(); if(!(k in mine)) return;
-  if(confirm(`刪除範本「${mine[k].name}」？`)){delete mine[k]; saveMine(mine); fillSelect();}};
+$('delTpl').onclick=async()=>{const k=$('tpl').value, mine=loadMine(); if(!(k in mine)) return;
+  if(confirm(`刪除範本「${mine[k].name}」？（所有電腦都會一齊刪除）`)){await dropTpl(k); fillSelect();}};
 $('expTpl').onclick=()=>{const mine=loadMine(); if(!Object.keys(mine).length) return alert('未有我的範本');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(mine,null,1)],{type:'application/json'}));
   a.download='遮蓋範本.json'; a.click();};
 $('impTpl').onchange=async e=>{const f=e.target.files[0]; if(!f) return;
   try{const d=JSON.parse(await f.text()), mine=loadMine(); let n=0;
-    for(const [k,t] of Object.entries(d)) if(t&&t.name&&t.pages){mine[k.startsWith('my_')?k:'my_'+k]=t;n++;}
-    if(saveMine(mine)){fillSelect(); alert(`已匯入 ${n} 個範本`);} }catch(err){alert('範本檔格式錯誤');}
+    for(const [k,t] of Object.entries(d)) if(t&&t.name&&t.pages){await putTpl((k.startsWith('my_')?k:'my_'+k).replace(/[^\w-]/g,'_').slice(0,64),{name:t.name,pages:t.pages});n++;}
+    fillSelect(); alert(`已匯入 ${n} 個範本`); }catch(err){alert('範本檔格式錯誤或儲存失敗');}
   e.target.value='';};
 
 $('file').onchange=async e=>{

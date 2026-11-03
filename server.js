@@ -3,6 +3,13 @@ const http = require('http'), fs = require('fs'), path = require('path');
 const chunks = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/chunks.json'), 'utf8'));
 const PORT = process.env.PORT || 3000;
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
+// Shared redaction templates (persisted; set TEMPLATES_DIR to a mounted volume on Railway)
+const TPL_DIR = process.env.TEMPLATES_DIR || path.join(__dirname, 'data');
+const TPL_FILE = path.join(TPL_DIR, 'my-templates.json');
+const readTpl = () => { try { return JSON.parse(fs.readFileSync(TPL_FILE, 'utf8')); } catch { return {}; } };
+const writeTpl = t => { fs.mkdirSync(TPL_DIR, { recursive: true }); fs.writeFileSync(TPL_FILE + '.tmp', JSON.stringify(t)); fs.renameSync(TPL_FILE + '.tmp', TPL_FILE); };
+const validTpl = t => t && typeof t.name === 'string' && t.name.length <= 100 && t.pages && typeof t.pages === 'object' &&
+  Object.values(t.pages).every(a => Array.isArray(a) && a.length <= 500 && a.every(b => ['x', 'y', 'w', 'h'].every(k => typeof b[k] === 'number')));
 
 const isCJK = c => /[一-鿿]/.test(c);
 function grams(s) {
@@ -60,6 +67,18 @@ http.createServer(async (req, res) => {
       const q = (JSON.parse(body).q || '').trim().slice(0, 500);
       if (!q) return json({ error: 'empty' }, 400);
       return json(await ask(q));
+    }
+    const tm = u.pathname.match(/^\/api\/templates(?:\/([\w-]{1,64}))?$/);
+    if (tm) {
+      const key = tm[1];
+      if (req.method === 'GET' && !key) return json(readTpl());
+      if (req.method === 'PUT' && key) {
+        let body = ''; for await (const d of req) { body += d; if (body.length > 300000) return json({ error: 'too large' }, 413); }
+        const t = JSON.parse(body); if (!validTpl(t)) return json({ error: 'bad template' }, 400);
+        const all = readTpl(); all[key] = { name: t.name, pages: t.pages, saved: new Date().toISOString() }; writeTpl(all); return json({ ok: true });
+      }
+      if (req.method === 'DELETE' && key) { const all = readTpl(); delete all[key]; writeTpl(all); return json({ ok: true }); }
+      return json({ error: 'method' }, 405);
     }
     if (u.pathname === '/health') return json({ ok: true, chunks: chunks.length, ai: !!process.env.ANTHROPIC_API_KEY });
     const docs = u.pathname.startsWith('/docs/') ? path.join(__dirname, 'data/pdf', path.basename(u.pathname)) : null;

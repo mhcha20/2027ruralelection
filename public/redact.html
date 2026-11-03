@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>提名表格遮蓋工具</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a2e;--mut:#666;--card:#f4f5f9;--acc:#2f6f4f;--bd:#dde;--sel:#e0533d}
+@media(prefers-color-scheme:dark){:root{--bg:#14141f;--fg:#e8e8f0;--mut:#9a9ab0;--card:#1e1e2e;--acc:#6fcf97;--bd:#33334a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,"Noto Sans TC",sans-serif}
+header{padding:16px;border-bottom:1px solid var(--bd)}header h1{font-size:1.25rem;margin:0}header a{color:var(--acc)}
+.wrap{display:flex;gap:16px;padding:16px;align-items:flex-start}
+aside{width:320px;flex:none;position:sticky;top:12px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;max-height:calc(100vh - 24px);overflow:auto}
+aside h3{margin:14px 0 6px;font-size:.95rem}aside h3:first-child{margin-top:0}
+select,input[type=number],button,label.file{font:inherit}
+button,label.file{display:inline-block;padding:7px 12px;border-radius:7px;border:1px solid var(--bd);background:var(--bg);color:var(--fg);cursor:pointer;margin:2px 0}
+button.pri,label.file{background:var(--acc);color:#fff;border-color:var(--acc)}
+button:disabled{opacity:.45;cursor:not-allowed}
+select{padding:6px;border-radius:7px;border:1px solid var(--bd);background:var(--bg);color:var(--fg);width:100%}
+.note{color:var(--mut);font-size:.83rem}
+.warn{background:#fff3cd;color:#664d03;border-radius:8px;padding:8px 10px;font-size:.85rem;margin:8px 0}
+ol.items{padding-left:20px;margin:4px 0;font-size:.85rem}
+main{flex:1;min-width:0}
+.page{position:relative;margin:0 auto 20px;max-width:900px;box-shadow:0 1px 6px #0003;background:#fff;touch-action:none;user-select:none}
+.page canvas{display:block;width:100%;height:auto}
+.page .pno{position:absolute;left:-2px;top:-22px;font-size:.8rem;color:var(--mut)}
+.box{position:absolute;background:#000;outline:1px solid transparent;cursor:move}
+.box.sel{outline:2px solid var(--sel)}
+.box span{position:absolute;left:0;bottom:100%;font-size:10px;line-height:1.3;color:#fff;background:var(--sel);padding:0 3px;white-space:nowrap;display:none;pointer-events:none}
+.preview .box span,.preview .box{outline:none}
+body:not(.preview) .box span{display:block;opacity:.85}
+body:not(.preview) .box{background:rgba(0,0,0,.82)}
+.box i{position:absolute;right:-6px;bottom:-6px;width:12px;height:12px;background:var(--sel);border-radius:2px;cursor:nwse-resize;display:none}
+.box.sel i{display:block}
+.drawing{position:absolute;border:2px dashed var(--sel);background:rgba(224,83,61,.15);pointer-events:none}
+.empty{text-align:center;color:var(--mut);padding:80px 20px;border:2px dashed var(--bd);border-radius:12px}
+@media(max-width:820px){.wrap{flex-direction:column}aside{width:100%;position:static;max-height:none}}
+</style></head><body>
+<header><h1>提名表格遮蓋工具（供公眾查閱）</h1>
+<div class="note">所有處理只在你部電腦／手機瀏覽器內進行，檔案<b>唔會上載</b>到伺服器。<a href="/">← 返回指引問答</a></div></header>
+<div class="wrap">
+<aside>
+ <h3>1. 上載提名表格</h3>
+ <label class="file">選擇 PDF / 圖片<input id="file" type="file" accept="application/pdf,image/*" multiple hidden></label>
+ <div class="note" id="fileinfo">未有檔案</div>
+
+ <h3>2. 套用範本</h3>
+ <select id="tpl"><option value="IIR">IIR 原居民代表</option><option value="ReR">ReR 居民代表</option><option value="KFR">KFR 街坊代表</option></select>
+ <div style="margin-top:6px">由檔案第 <input id="startPage" type="number" value="1" min="1" style="width:56px"> 頁開始（表格第1頁）</div>
+ <button id="apply" class="pri" disabled>套用範本遮蓋位置</button>
+ <div class="note">範本根據民政總署簡報（第134–145頁）樣本嘅遮蓋位置。掃描位置唔同會有偏差，<b>一定要逐頁檢查及調整</b>。</div>
+
+ <h3>3. 調整</h3>
+ <div class="note">• 喺頁面上拖曳 = 新增黑格<br>• 拖黑格 = 移動；拖右下角紅點 = 改大細<br>• 揀選後按 Delete／「刪除」</div>
+ <button id="del" disabled>刪除所選</button>
+ <button id="clearPage" disabled>清除所選頁全部</button>
+ <div style="margin-top:6px">全部黑格微調：
+  <button data-n="0,-1">↑</button><button data-n="0,1">↓</button><button data-n="-1,0">←</button><button data-n="1,0">→</button></div>
+ <label style="display:block;margin-top:6px"><input type="checkbox" id="pv"> 預覽（實黑、隱藏標籤）</label>
+
+ <h3>4. 匯出</h3>
+ <button id="export" class="pri" disabled>下載已遮蓋 PDF</button>
+ <div class="note">匯出時會將每頁轉成圖片再蓋黑格，底下文字<b>無法</b>還原或複製。</div>
+
+ <h3>須遮蓋嘅14項（提名指引簡報 p.133）</h3>
+ <ol class="items">
+  <li>候選人身分證號碼</li><li>出生日期（年份除外）</li><li>地址／主要住址（中文）＊</li><li>地址／主要住址（英文）＊</li>
+  <li>通訊地址</li><li>住宅電話</li><li>辦公室電話</li><li>流動電話</li><li>傳真號碼</li><li>電郵地址</li>
+  <li>提名人身分證明文件類別</li><li>提名人身分證明文件號碼／主要住址＊</li><li>見證人身分證明文件</li><li>見證人地址</li>
+ </ol>
+ <div class="note">＊ReR／KFR：主要住址只遮「區域」、「地區」、「鄉村名稱」以外嘅部分。<br>「供傳媒及公眾查閱的聯絡資料」一欄<b>唔使</b>遮。</div>
+ <div class="warn">本工具只作輔助，最終以選舉主任／民政事務總署指示為準。匯出後請再逐頁核對。</div>
+</aside>
+<main id="pages"><div class="empty">上載提名表格（PDF 或相片）開始</div></main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const $=id=>document.getElementById(id), pagesEl=$('pages');
+let pages=[]; // {canvas, el, boxes:[{x,y,w,h,label,el}]}
+let sel=null, selPage=null, templates=null, baseName='nomination';
+fetch('redact-templates.json').then(r=>r.json()).then(t=>templates=t);
+
+$('file').onchange=async e=>{
+  const files=[...e.target.files]; if(!files.length) return;
+  baseName=files[0].name.replace(/\.[^.]+$/,'');
+  pages=[]; pagesEl.innerHTML='<div class="empty">載入中…</div>';
+  for(const f of files){
+    if(f.type==='application/pdf'){
+      const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;
+      for(let i=1;i<=pdf.numPages;i++){
+        const pg=await pdf.getPage(i), vp=pg.getViewport({scale:2.2});
+        const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height;
+        await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise; addPage(c);
+      }
+    } else {
+      const img=await createImageBitmap(f), c=document.createElement('canvas');
+      const s=Math.min(1,2400/Math.max(img.width,img.height)); c.width=img.width*s; c.height=img.height*s;
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height); addPage(c);
+    }
+  }
+  pagesEl.querySelector('.empty')?.remove();
+  $('fileinfo').textContent=`${files.length} 個檔案，共 ${pages.length} 頁`;
+  ['apply','export','clearPage'].forEach(id=>$(id).disabled=false);
+};
+
+function addPage(canvas){
+  const el=document.createElement('div'); el.className='page';
+  el.innerHTML=`<div class="pno">第 ${pages.length+1} 頁</div>`; el.prepend(canvas);
+  const p={canvas,el,boxes:[]}; pages.push(p); pagesEl.append(el);
+  el.addEventListener('pointerdown',ev=>startDraw(ev,p));
+}
+
+function addBox(p,b){
+  const d=document.createElement('div'); d.className='box';
+  d.innerHTML=`<span></span><i></i>`; d.querySelector('span').textContent=b.label||'';
+  const box={...b,el:d}; p.boxes.push(box); p.el.append(d); place(box);
+  d.addEventListener('pointerdown',ev=>{ev.stopPropagation(); select(box,p); dragBox(ev,box,p,ev.target.tagName==='I');});
+  return box;
+}
+function place(b){Object.assign(b.el.style,{left:b.x*100+'%',top:b.y*100+'%',width:b.w*100+'%',height:b.h*100+'%'});}
+function select(b,p){ if(sel) sel.el.classList.remove('sel'); sel=b; selPage=p; if(b) b.el.classList.add('sel'); $('del').disabled=!b; }
+const rel=(ev,p)=>{const r=p.el.getBoundingClientRect();return [(ev.clientX-r.left)/r.width,(ev.clientY-r.top)/r.height];};
+
+function startDraw(ev,p){
+  select(null,p); selPage=p;
+  const [x0,y0]=rel(ev,p), d=document.createElement('div'); d.className='drawing'; p.el.append(d);
+  p.el.setPointerCapture(ev.pointerId);
+  let r={x:x0,y:y0,w:0,h:0};
+  const mv=e=>{const [x,y]=rel(e,p); r={x:Math.min(x,x0),y:Math.min(y,y0),w:Math.abs(x-x0),h:Math.abs(y-y0)};
+    Object.assign(d.style,{left:r.x*100+'%',top:r.y*100+'%',width:r.w*100+'%',height:r.h*100+'%'});};
+  const up=()=>{p.el.removeEventListener('pointermove',mv); d.remove();
+    if(r.w>.01&&r.h>.004) select(addBox(p,{...r,label:'人手新增'}),p);};
+  p.el.addEventListener('pointermove',mv); p.el.addEventListener('pointerup',up,{once:true});
+}
+function dragBox(ev,b,p,resize){
+  const [sx,sy]=rel(ev,p), o={...b}; b.el.setPointerCapture(ev.pointerId);
+  const mv=e=>{const [x,y]=rel(e,p);
+    if(resize){b.w=Math.max(.01,o.w+x-sx); b.h=Math.max(.004,o.h+y-sy);} else {b.x=o.x+x-sx; b.y=o.y+y-sy;} place(b);};
+  b.el.addEventListener('pointermove',mv); b.el.addEventListener('pointerup',()=>b.el.removeEventListener('pointermove',mv),{once:true});
+}
+function removeBox(b,p){b.el.remove(); p.boxes=p.boxes.filter(x=>x!==b); if(sel===b) select(null);}
+
+$('apply').onclick=()=>{
+  const t=templates?.[$('tpl').value]; if(!t) return alert('範本未載入');
+  const start=(+$('startPage').value||1)-1; let n=0;
+  for(const [pg,boxes] of Object.entries(t.pages)){
+    const p=pages[start+(+pg)-1]; if(!p) continue;
+    boxes.forEach(b=>{addBox(p,b);n++;});
+  }
+  alert(`已加入 ${n} 個遮蓋位置（${t.name}）。請逐頁檢查，特別係手寫內容超出黑格嘅位置。`);
+};
+$('del').onclick=()=>sel&&removeBox(sel,selPage);
+$('clearPage').onclick=()=>{const p=selPage||pages[0]; if(p&&confirm('清除呢一頁所有黑格？')) [...p.boxes].forEach(b=>removeBox(b,p));};
+document.addEventListener('keydown',e=>{if((e.key==='Delete'||e.key==='Backspace')&&sel&&e.target.tagName!=='INPUT'){e.preventDefault();removeBox(sel,selPage);}});
+document.querySelectorAll('[data-n]').forEach(btn=>btn.onclick=()=>{
+  const [dx,dy]=btn.dataset.n.split(',').map(Number);
+  const targets=sel?[sel]:pages.flatMap(p=>p.boxes);
+  targets.forEach(b=>{b.x+=dx*.003;b.y+=dy*.002;place(b);});
+});
+$('pv').onchange=e=>document.body.classList.toggle('preview',e.target.checked);
+
+$('export').onclick=async()=>{
+  const btn=$('export'); btn.disabled=true; btn.textContent='處理中…';
+  try{
+    const {jsPDF}=window.jspdf; let doc;
+    for(const p of pages){
+      const c=document.createElement('canvas'); c.width=p.canvas.width; c.height=p.canvas.height;
+      const g=c.getContext('2d'); g.drawImage(p.canvas,0,0); g.fillStyle='#000';
+      p.boxes.forEach(b=>g.fillRect(b.x*c.width,b.y*c.height,b.w*c.width,b.h*c.height));
+      const w=595.28,h=w*c.height/c.width, o=h>w?'p':'l';
+      if(!doc) doc=new jsPDF({unit:'pt',format:[w,h],orientation:o}); else doc.addPage([w,h],o);
+      doc.addImage(c.toDataURL('image/jpeg',0.85),'JPEG',0,0,w,h);
+    }
+    doc.save(baseName+'_公眾查閱版.pdf');
+  }catch(err){alert('匯出失敗：'+err.message);}
+  btn.disabled=false; btn.textContent='下載已遮蓋 PDF';
+};
+</script>
+</body></html>

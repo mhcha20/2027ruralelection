@@ -49,7 +49,7 @@ async function ask(q) {
   return { answer: j.content.map(b => b.text || '').join(''), sources };
 }
 
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.pdf': 'application/pdf' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.pdf': 'application/pdf', '.json': 'application/json' };
 http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
   const json = (o, code = 200) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(o)); };

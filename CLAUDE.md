@@ -9,3 +9,4 @@ Q&A website over the Hong Kong EAC 2027 Rural Representative Election guidelines
 - `server.js` — zero-dependency Node server: `/api/search`, `/api/ask` (Claude if `ANTHROPIC_API_KEY` set), static `public/`.
 - Deployed on Railway project `2027ruralelection` (service `web`, auto-deploys from `main`): https://web-production-81c64.up.railway.app
 - Answer only from the guideline text, in Traditional Chinese, and cite chapter/page. If the guideline is updated on eac.hk, re-download the PDFs and rebuild chunks.
+- `data/pdf/nomination_guide.pdf` (also served at `/docs/nomination_guide.pdf`) — 2027 鄉郊一般選舉候選人提名指引 slide deck (Oct 2026, 158 pages) supplied by the user; original/uploaded, not from eac.hk. Covers nomination forms (IIR etc.), election dates (原居民/居民代表 2027-01-17, 街坊代表 2027-01-24).

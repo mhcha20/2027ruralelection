@@ -27,7 +27,7 @@ for p in sorted(glob.glob('data/pdf/*.pdf')):
         for para in paras + ['']:
             if buf and (len(buf) + len(para) > 500 or not para):
                 chunks.append(dict(id=len(chunks), doc=key, title=titles[key], page=i,
-                                   url=f'{BASE}{key}.pdf#page={i}', text=buf))
+                                   url=(f'/docs/{key}.pdf#page={i}' if key=='nomination_guide' else f'{BASE}{key}.pdf#page={i}'), text=buf))
                 buf = ''
             buf += para
 print(len(chunks), 'chunks')

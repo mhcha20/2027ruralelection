@@ -49,7 +49,7 @@ async function ask(q) {
   return { answer: j.content.map(b => b.text || '').join(''), sources };
 }
 
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.pdf': 'application/pdf' };
 http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
   const json = (o, code = 200) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(o)); };
@@ -62,8 +62,9 @@ http.createServer(async (req, res) => {
       return json(await ask(q));
     }
     if (u.pathname === '/health') return json({ ok: true, chunks: chunks.length, ai: !!process.env.ANTHROPIC_API_KEY });
-    const f = path.join(__dirname, 'public', u.pathname === '/' ? 'index.html' : u.pathname);
-    if (!f.startsWith(path.join(__dirname, 'public')) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end('Not found'); }
+    const docs = u.pathname.startsWith('/docs/') ? path.join(__dirname, 'data/pdf', path.basename(u.pathname)) : null;
+    const f = docs || path.join(__dirname, 'public', u.pathname === '/' ? 'index.html' : u.pathname);
+    if (!(docs || f.startsWith(path.join(__dirname, 'public'))) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end('Not found'); }
     res.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(res);
   } catch (e) { json({ error: e.message }, 500); }
 }).listen(PORT, () => console.log('listening on', PORT));

@@ -57,10 +57,23 @@ async function ask(q) {
 }
 
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.pdf': 'application/pdf', '.json': 'application/json' };
+// Whole-site password (HTTP Basic). Set SITE_PASSWORD on Railway; any username is accepted.
+const SITE_PW = process.env.SITE_PASSWORD;
+function siteAuthed(req) {
+  if (!SITE_PW) return true;
+  const h = req.headers.authorization || '';
+  if (!h.startsWith('Basic ')) return false;
+  const dec = Buffer.from(h.slice(6), 'base64').toString('utf8');
+  return dec.slice(dec.indexOf(':') + 1) === SITE_PW;
+}
 http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
   const json = (o, code = 200) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(o)); };
   try {
+    if (u.pathname !== '/health' && !siteAuthed(req)) {
+      res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="2027 Rural Election", charset="UTF-8"', 'content-type': 'text/plain; charset=utf-8' });
+      return res.end('需要密碼 / Password required');
+    }
     if (u.pathname === '/api/search') return json({ sources: search(u.searchParams.get('q') || '', 10) });
     if (u.pathname === '/api/ask' && req.method === 'POST') {
       let body = ''; for await (const d of req) { body += d; if (body.length > 5000) return json({ error: 'too long' }, 413); }
@@ -74,7 +87,7 @@ http.createServer(async (req, res) => {
       if (req.method === 'GET' && !key) return json(readTpl());
       const PW = process.env.TEMPLATES_PASSWORD;
       if (!PW) return json({ error: 'TEMPLATES_PASSWORD not configured' }, 503);
-      if ((req.headers['x-password'] || '') !== PW) return json({ error: 'wrong password' }, 401);
+      if (!SITE_PW && (req.headers['x-password'] || '') !== PW) return json({ error: 'wrong password' }, 401);
       if (req.method === 'PUT' && key) {
         let body = ''; for await (const d of req) { body += d; if (body.length > 300000) return json({ error: 'too large' }, 413); }
         const t = JSON.parse(body); if (!validTpl(t)) return json({ error: 'bad template' }, 400);

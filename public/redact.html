@@ -26,7 +26,7 @@ main{flex:1;min-width:0}
 .box span{position:absolute;left:0;bottom:100%;font-size:10px;line-height:1.3;color:#fff;background:var(--sel);padding:0 3px;white-space:nowrap;display:none;pointer-events:none}
 .preview .box span,.preview .box{outline:none}
 body:not(.preview) .box span{display:block;opacity:.85}
-body:not(.preview) .box{background:rgba(0,0,0,.82)}
+body:not(.preview) .box{background:#000}
 .box i{position:absolute;right:-6px;bottom:-6px;width:12px;height:12px;background:var(--sel);border-radius:2px;cursor:nwse-resize;display:none}
 .box.sel i{display:block}
 .drawing{position:absolute;border:2px dashed var(--sel);background:rgba(224,83,61,.15);pointer-events:none}
@@ -42,7 +42,7 @@ body:not(.preview) .box{background:rgba(0,0,0,.82)}
  <div class="note" id="fileinfo">未有檔案</div>
 
  <h3>2. 套用範本</h3>
- <select id="tpl"><option value="IIR">IIR 原居民代表</option><option value="ReR">ReR 居民代表</option><option value="KFR">KFR 街坊代表</option></select>
+ <select id="tpl"></select>
  <div style="margin-top:6px">由檔案第 <input id="startPage" type="number" value="1" min="1" style="width:56px"> 頁開始（表格第1頁）</div>
  <button id="apply" class="pri" disabled>套用範本遮蓋位置</button>
  <div class="note">範本根據民政總署簡報（第134–145頁）樣本嘅遮蓋位置。掃描位置唔同會有偏差，<b>一定要逐頁檢查及調整</b>。</div>
@@ -55,7 +55,14 @@ body:not(.preview) .box{background:rgba(0,0,0,.82)}
   <button data-n="0,-1">↑</button><button data-n="0,1">↓</button><button data-n="-1,0">←</button><button data-n="1,0">→</button></div>
  <label style="display:block;margin-top:6px"><input type="checkbox" id="pv"> 預覽（實黑、隱藏標籤）</label>
 
- <h3>4. 匯出</h3>
+ <h3>4. 儲存位置（下次再用）</h3>
+ <button id="saveTpl" disabled>儲存為我的範本</button>
+ <button id="delTpl">刪除所選範本</button><br>
+ <button id="expTpl">匯出範本檔</button>
+ <label class="file" style="background:var(--bg);color:var(--fg);border-color:var(--bd)">匯入範本檔<input id="impTpl" type="file" accept=".json,application/json" hidden></label>
+ <div class="note">只會儲存黑格位置，<b>唔會</b>儲存表格內容。範本存喺呢部機嘅瀏覽器；轉機或清除瀏覽器資料前，請先「匯出範本檔」。</div>
+
+ <h3>5. 匯出</h3>
  <button id="export" class="pri" disabled>下載已遮蓋 PDF</button>
  <div class="note">匯出時會將每頁轉成圖片再蓋黑格，底下文字<b>無法</b>還原或複製。</div>
 
@@ -78,7 +85,45 @@ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/p
 const $=id=>document.getElementById(id), pagesEl=$('pages');
 let pages=[]; // {canvas, el, boxes:[{x,y,w,h,label,el}]}
 let sel=null, selPage=null, templates=null, baseName='nomination';
-fetch('redact-templates.json').then(r=>r.json()).then(t=>templates=t);
+const LS='redactMyTemplates';
+const loadMine=()=>{try{return JSON.parse(localStorage.getItem(LS))||{}}catch{return {}}};
+const saveMine=m=>{try{localStorage.setItem(LS,JSON.stringify(m));return true}catch{alert('瀏覽器唔允許儲存（可能係私密瀏覽模式），請用「匯出範本檔」');return false}};
+let builtin={};
+function allTemplates(){return {...builtin,...loadMine()};}
+function fillSelect(keep){
+  const s=$('tpl'), mine=loadMine(), cur=keep||s.value; s.innerHTML='';
+  const g1=document.createElement('optgroup'); g1.label='官方樣本範本';
+  for(const [k,t] of Object.entries(builtin)) g1.append(new Option(t.name,k));
+  s.append(g1);
+  if(Object.keys(mine).length){const g2=document.createElement('optgroup'); g2.label='我的範本';
+    for(const [k,t] of Object.entries(mine)) g2.append(new Option('★ '+t.name,k)); s.append(g2);}
+  if(cur&&[...s.options].some(o=>o.value===cur)) s.value=cur;
+  $('delTpl').disabled=!(s.value in mine);
+}
+fetch('redact-templates.json').then(r=>r.json()).then(t=>{builtin=t;templates=t;fillSelect();});
+$('tpl').onchange=()=>fillSelect();
+$('saveTpl').onclick=()=>{
+  const start=(+$('startPage').value||1)-1, out={}; let n=0;
+  pages.forEach((p,i)=>{ if(i<start||!p.boxes.length) return;
+    out[i-start+1]=p.boxes.map(b=>({x:+b.x.toFixed(4),y:+b.y.toFixed(4),w:+b.w.toFixed(4),h:+b.h.toFixed(4),label:b.label||''})); n+=p.boxes.length;});
+  if(!n) return alert('未有黑格可以儲存');
+  const cur=$('tpl').value, mine=loadMine();
+  const name=prompt('範本名稱（同名會覆蓋）：',mine[cur]?.name||(builtin[cur]?.name+'（調整版）'));
+  if(!name) return;
+  const key=Object.entries(mine).find(([k,t])=>t.name===name)?.[0]||('my_'+Date.now());
+  mine[key]={name,pages:out,saved:new Date().toISOString()};
+  if(saveMine(mine)){fillSelect(key); alert(`已儲存「${name}」（${n} 個黑格）。下次揀返呢個範本再撳「套用」就得。`);}
+};
+$('delTpl').onclick=()=>{const k=$('tpl').value, mine=loadMine(); if(!(k in mine)) return;
+  if(confirm(`刪除範本「${mine[k].name}」？`)){delete mine[k]; saveMine(mine); fillSelect();}};
+$('expTpl').onclick=()=>{const mine=loadMine(); if(!Object.keys(mine).length) return alert('未有我的範本');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(mine,null,1)],{type:'application/json'}));
+  a.download='遮蓋範本.json'; a.click();};
+$('impTpl').onchange=async e=>{const f=e.target.files[0]; if(!f) return;
+  try{const d=JSON.parse(await f.text()), mine=loadMine(); let n=0;
+    for(const [k,t] of Object.entries(d)) if(t&&t.name&&t.pages){mine[k.startsWith('my_')?k:'my_'+k]=t;n++;}
+    if(saveMine(mine)){fillSelect(); alert(`已匯入 ${n} 個範本`);} }catch(err){alert('範本檔格式錯誤');}
+  e.target.value='';};
 
 $('file').onchange=async e=>{
   const files=[...e.target.files]; if(!files.length) return;
@@ -100,7 +145,7 @@ $('file').onchange=async e=>{
   }
   pagesEl.querySelector('.empty')?.remove();
   $('fileinfo').textContent=`${files.length} 個檔案，共 ${pages.length} 頁`;
-  ['apply','export','clearPage'].forEach(id=>$(id).disabled=false);
+  ['apply','export','clearPage','saveTpl'].forEach(id=>$(id).disabled=false);
 };
 
 function addPage(canvas){
@@ -141,7 +186,7 @@ function dragBox(ev,b,p,resize){
 function removeBox(b,p){b.el.remove(); p.boxes=p.boxes.filter(x=>x!==b); if(sel===b) select(null);}
 
 $('apply').onclick=()=>{
-  const t=templates?.[$('tpl').value]; if(!t) return alert('範本未載入');
+  const t=allTemplates()[$('tpl').value]; if(!t) return alert('範本未載入');
   const start=(+$('startPage').value||1)-1; let n=0;
   for(const [pg,boxes] of Object.entries(t.pages)){
     const p=pages[start+(+pg)-1]; if(!p) continue;

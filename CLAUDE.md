@@ -14,4 +14,5 @@ Q&A website over the Hong Kong EAC 2027 Rural Representative Election guidelines
 - `data/forms/FR_nomination_form_2026_STDO.docx` — blank 漁民代表 (FR) nomination form, election 2026-12-20, supplied by user. FR template (page numbers per the form footer, 1–8) measured from a LibreOffice render; Word/print layout may differ slightly. FR subscriber table only has HKID column. Redaction items for FR assumed same as IIR (full address) — not in the guide deck.
 - `public/dates.html` — 重要日子一覽 timeline (provisional, compiled from nomination_guide + EAC guide; each row cites source page). Edit the `E` array in the file to add dates.
 - Whole site is behind HTTP Basic auth: env `SITE_PASSWORD` on Railway (any username). `/health` stays open. When SITE_PASSWORD is set, template writes no longer need `x-password`. Never commit password values.
+- `railway.json` sets startCommand `node server.js` + healthcheck `/health`; server handles SIGTERM with exit 0 so redeploys are not emailed as crashes.
 - Reply to the user in Cantonese (廣東話).

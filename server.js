@@ -66,7 +66,7 @@ function siteAuthed(req) {
   const dec = Buffer.from(h.slice(6), 'base64').toString('utf8');
   return dec.slice(dec.indexOf(':') + 1) === SITE_PW;
 }
-http.createServer(async (req, res) => {
+const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
   const json = (o, code = 200) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(o)); };
   try {
@@ -102,4 +102,11 @@ http.createServer(async (req, res) => {
     if (!(docs || f.startsWith(path.join(__dirname, 'public'))) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end('Not found'); }
     res.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(res);
   } catch (e) { json({ error: e.message }, 500); }
-}).listen(PORT, () => console.log('listening on', PORT));
+});
+server.listen(PORT, () => console.log('listening on', PORT));
+// Railway sends SIGTERM when a newer deployment replaces this one: close cleanly so it is not reported as a crash.
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => {
+  console.log(sig, 'received, shutting down');
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 5000).unref();
+});

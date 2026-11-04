@@ -3,9 +3,11 @@ Usage: pip install pymupdf; python3 scripts/build_chunks.py"""
 import pymupdf, glob, os, re, json
 titles = json.load(open('data/titles.json'))
 BASE = 'https://www.eac.hk/pdf/village/ch/'
-LOCAL = {'nomination_guide', 'ro_manual', 'ro_forms'}   # served from data/pdf via /docs/
-# Text-only documents (PDF too large to fetch): data/text/<key>.txt, cited by section heading
-TEXT_DOCS = {'ro_appendices': ('https://drive.google.com/file/d/1QPPTgWGmobE2Z4XAUIWvYCCQblmfgW1e/view', r'^(Appendix [IVXL]+)')}
+LOCAL = {'nomination_guide', 'ro_manual', 'ro_forms', 'ro_appendices', 'ro_briefing'}   # served from data/pdf via /docs/
+# Documents whose text lives in data/text/<key>.txt (e.g. image-only PDFs transcribed by hand).
+# key -> (url base, heading regex). If the heading's group is a number it is used as the PDF page (#page=N).
+TEXT_DOCS = {'ro_briefing': ('/docs/ro_briefing.pdf', r'^=== PDF p\.(\d+)')}
+SKIP_PDF_TEXT = set(TEXT_DOCS)   # these PDFs have no text layer; use the .txt instead
 CJK = r'　-〿一-鿿＀-￯'
 
 def clean(t):
@@ -20,7 +22,7 @@ def clean(t):
 chunks = []
 for p in sorted(glob.glob('data/pdf/*.pdf')):
     key = os.path.basename(p)[:-4]
-    if key not in titles: continue
+    if key not in titles or key in SKIP_PDF_TEXT: continue
     doc = pymupdf.open(p)
     for i, page in enumerate(doc, 1):
         text = clean(page.get_text())
@@ -36,12 +38,15 @@ for p in sorted(glob.glob('data/pdf/*.pdf')):
             buf += (' ' if eng and buf else '') + para
 for key, (url, head) in TEXT_DOCS.items():
     sec, buf = '', ''
-    flush = lambda: chunks.append(dict(id=len(chunks), doc=key, title=titles[key], page=sec, url=url, text=buf))
+    def flush():
+        pg = int(sec) if sec.isdigit() else sec
+        chunks.append(dict(id=len(chunks), doc=key, title=titles[key], page=pg, url=url + (f'#page={pg}' if sec.isdigit() else ''), text=buf))
     for para in [l.strip() for l in open(f'data/text/{key}.txt').read().split('\n') if l.strip()]:
         m = re.match(head, para)
         if m and m.group(1) != sec:
             if buf: flush(); buf = ''
             sec = m.group(1)
+            continue   # the marker line itself is not content
         if buf and len(buf) + len(para) > 800: flush(); buf = ''
         buf += (' ' if buf else '') + para
     if buf: flush()

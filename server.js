@@ -14,16 +14,24 @@ const validTpl = t => t && typeof t.name === 'string' && t.name.length <= 100 &&
 const isCJK = c => /[一-鿿]/.test(c);
 function grams(s) {
   s = s.toLowerCase(); const out = [];
-  const cjk = [...s].filter(isCJK).join('');
-  for (let i = 0; i < cjk.length - 1; i++) out.push(cjk.slice(i, i + 2));
+  // bigrams within each run of CJK characters (runs are separated by punctuation / spaces / removed stop words)
+  for (const run of s.match(/[一-鿿]+/g) || []) for (let i = 0; i < run.length - 1; i++) out.push(run.slice(i, i + 2));
   for (const w of s.match(/[a-z0-9.]+/g) || []) out.push(w);
   return out;
 }
-const idx = chunks.map(c => new Set(grams(c.text + ' ' + c.title)));
+// Term frequencies per chunk (BM25) and document frequencies
+const N = chunks.length;
+const tfIdx = chunks.map(c => { const m = new Map(); for (const g of grams(c.text)) m.set(g, (m.get(g) || 0) + 1); return m; });
+const lens = chunks.map(c => c.text.length), avgLen = lens.reduce((a, b) => a + b, 0) / N;
 const df = new Map();
-idx.forEach(set => set.forEach(g => df.set(g, (df.get(g) || 0) + 1)));
-
-const STOP = '需要 多少 甚麼 什麼 可以 是否 如何 怎樣 應該 有沒有 哪些 請問 能否 需否 是什 麼人 要多 少人'.split(' ');
+tfIdx.forEach(m => m.forEach((_, g) => df.set(g, (df.get(g) || 0) + 1)));
+const idf = g => Math.log(1 + (N - (df.get(g) || 0) + 0.5) / ((df.get(g) || 0) + 0.5));
+const titleSet = chunks.map(c => new Set(grams(c.title)));
+// Question words / particles that carry no meaning for retrieval. Removed before building bigrams so they also stop
+// bigrams spanning them (e.g. 「時間係幾點」 → 「時間」 only). Longer entries first so they win over their parts.
+const QSTOP = ['可唔可以','應唔應該','使唔使','要唔要','有沒有','有冇','有無','點樣','點算','點做','點解','幾時','幾點','幾多','幾耐','幾錢','邊啲','邊個','邊度','乜嘢','咩嘢','係咪','是否','如何','怎樣','應該','需要','需否','能否','請問','哪些','甚麼','什麼','多少','之後','之前','同埋','或者','想知','知道','嘅','係','呀','吖','呢','嗎','啊','咩','啲','咗','嗰','佢','我','你','哋','的','了','嘛','囉','喎','就','都','仲','唔'];
+const QSTOP_RE = new RegExp(QSTOP.join('|'), 'g');
+const cleanQuery = q => q.replace(QSTOP_RE, ' ');
 // Chinese → English expansion so Chinese questions also hit the English HAD documents (ro_manual / ro_forms / ro_appendices)
 const GLOSS = {
   提名: 'nomination', 提名表格: 'nomination form', 提名期: 'nomination period', 候選人: 'candidate', 退選: 'withdrawal candidature',
@@ -44,18 +52,45 @@ const GLOSS = {
   辦公時間: 'ordinary business hours', 星期六: 'saturday', 當值: 'duty work on saturdays', 承諾書: 'undertaking', 授權: 'authorization authorisation permission', 同意: 'consent',
   清理: 'clearance removal', 移除: 'remove removal', 貼紙: 'stickers', 保密: 'secrecy', 聲明: 'declaration', 保管: 'safe custody', 銷毀: 'destruction erasure disposal'
 };
+// Cantonese / colloquial → wording the documents actually use
+const ZH_SYN = {
+  幾點: '時間', 幾時: '日期 限期', 幾耐: '期限', 幾多錢: '金額 最高限額', 幾多人: '人數 數目', 幾多: '數目',
+  移除: '拆除 清除 清理', 拆除: '移除 清除', 清走: '拆除 清除', 宣誓: '誓言 鄉郊代表誓言', 誓言: '宣誓',
+  遮: '遮蓋', 遮住: '遮蓋', 黑: '遮蓋', 退選: '退出選舉 退選通知書', 合照: '合照 照片 活動', 影相: '拍攝 攝影',
+  開門: '開始', 收工: '結束', 截止: '限期 結束', 死線: '限期', 交表: '遞交 提名表格', 落單: '遞交',
+  投票站開: '投票時間 開始', 投票站關: '投票時間 結束', 幾點開: '投票時間 開始', 幾點關: '投票時間 結束',
+  點票: '點票 點算', 抽籤: '抽籤 候選人編號', 選舉主任辦事處: '選舉主任 辦事處', 民政處: '民政事務處 民政事務總署',
+  身份證: '身分證明文件 身份證', 住址: '住址 地址', 電話: '電話號碼', 相片: '照片', 相: '照片',
+  罰款: '罰款 違法 罪行', 坐監: '監禁', 犯法: '違法 罪行', 投訴: '投訴', 拉票: '拉票 競選活動', 掛橫額: '展示 選舉廣告 橫額',
+  錢: '選舉開支 捐贈', 使費: '選舉開支', 開支: '選舉開支', 捐款: '選舉捐贈', 報數: '選舉申報書'
+};
 function expand(q) {
   const extra = [];
   for (const [zh, en] of Object.entries(GLOSS)) if (q.includes(zh)) extra.push(en);
+  for (const [zh, syn] of Object.entries(ZH_SYN)) if (q.includes(zh)) extra.push(syn);
   return extra.join(' ');
 }
-const titleSet = chunks.map(c => new Set(grams(c.title)));
 function search(q, k = 6) {
-  const qg = [...new Set(grams(q + ' ' + expand(q)))].filter(g => !STOP.includes(g));
+  const ex = expand(q);
+  const cq = cleanQuery(q + ' ' + ex);
+  const qg = [...new Set(grams(cq + ' ' + expand(ex)))];
+  const phrases = (cq.match(/[一-鿿]{2,}/g) || []).filter(p => p.length >= 2);   // exact runs for a phrase bonus
   const num = q.match(/\d+\.\d+/g) || [];
+  const k1 = 1.2, b = 0.75;
   const ranked = chunks.map((c, i) => {
-    let s = 0;
-    for (const g of qg) if (idx[i].has(g)) s += Math.log(1 + chunks.length / df.get(g)) * (titleSet[i].has(g) ? 3 : 1);
+    let s = 0, matched = 0;
+    const norm = k1 * (1 - b + b * lens[i] / avgLen);
+    for (const g of qg) {
+      const tf = tfIdx[i].get(g); if (!tf) continue;
+      matched++;
+      const w = idf(g);
+      s += w * tf * (k1 + 1) / (tf + norm);
+      if (titleSet[i].has(g)) s += w;              // title match counts roughly double
+    }
+    if (!s) return { c, s: 0 };
+    const low = c.text.toLowerCase();
+    for (const p of phrases) if (p.length >= 3 && low.includes(p)) s += 1.5 * p.length;   // whole phrase present
+    s *= 0.6 + 0.4 * matched / qg.length;          // reward covering more of the question
     for (const n of num) if (c.text.includes(n)) s += 8;
     if (c.doc.startsWith('appendix')) s *= 0.6;
     return { c, s };
@@ -137,7 +172,8 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(res);
   } catch (e) { json({ error: e.message }, 500); }
 });
-server.listen(PORT, () => console.log('listening on', PORT));
+if (require.main === module) server.listen(PORT, () => console.log('listening on', PORT));
+module.exports = { search };
 // Railway sends SIGTERM when a newer deployment replaces this one: close cleanly so it is not reported as a crash.
 for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => {
   console.log(sig, 'received, shutting down');

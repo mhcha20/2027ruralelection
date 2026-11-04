@@ -48,7 +48,8 @@ body:not(.preview) .box{background:#000}
  <div class="note">範本根據民政總署簡報（第134–145頁）樣本嘅遮蓋位置。掃描位置唔同會有偏差，<b>一定要逐頁檢查及調整</b>。</div>
 
  <h3>3. 調整</h3>
- <div class="note">• 喺頁面上拖曳 = 新增黑格<br>• 拖黑格 = 移動；拖右下角紅點 = 改大細<br>• 揀選後按 Delete／「刪除」</div>
+ <button id="addBox" class="pri" disabled>新增黑格</button>
+ <div class="note">• 撳「新增黑格」= 喺而家睇緊嘅頁加一個黑格，可重複新增<br>• 喺頁面上拖曳 = 自訂大小新增<br>• 拖黑格 = 移動；拖右下角紅點 = 改大細<br>• 揀選後按 Delete／「刪除」</div>
  <button id="del" disabled>刪除所選</button>
  <button id="clearPage" disabled>清除所選頁全部</button>
  <div style="margin-top:6px">全部黑格微調：
@@ -160,7 +161,7 @@ $('file').onchange=async e=>{
   }
   pagesEl.querySelector('.empty')?.remove();
   $('fileinfo').textContent=`${files.length} 個檔案，共 ${pages.length} 頁`;
-  ['apply','export','clearPage','saveTpl'].forEach(id=>$(id).disabled=false);
+  ['apply','export','clearPage','saveTpl','addBox'].forEach(id=>$(id).disabled=false);
 };
 
 function addPage(canvas){
@@ -199,6 +200,28 @@ function dragBox(ev,b,p,resize){
   b.el.addEventListener('pointermove',mv); b.el.addEventListener('pointerup',()=>b.el.removeEventListener('pointermove',mv),{once:true});
 }
 function removeBox(b,p){b.el.remove(); p.boxes=p.boxes.filter(x=>x!==b); if(sel===b) select(null);}
+
+function currentPage(){
+  if(selPage && pages.includes(selPage)) return selPage;
+  if(!pages.length) return null;
+  const mid = window.scrollY + innerHeight/2;
+  let best=pages[0], bestD=Infinity;
+  for(const p of pages){
+    const r=p.el.getBoundingClientRect();
+    const c=r.top + scrollY + r.height/2;
+    const d=Math.abs(c-mid);
+    if(d<bestD){ best=p; bestD=d; }
+  }
+  return best;
+}
+$('addBox').onclick=()=>{
+  const p=currentPage();
+  if(!p) return alert('請先上載提名表格');
+  const n=p.boxes.length;
+  const box=addBox(p,{x:0.12,y:Math.min(0.88,0.12+(n%16)*0.042),w:0.62,h:0.032,label:'人手新增'});
+  select(box,p);
+  box.el.scrollIntoView({block:'center',inline:'nearest'});
+};
 
 $('apply').onclick=()=>{
   const t=allTemplates()[$('tpl').value]; if(!t) return alert('範本未載入');

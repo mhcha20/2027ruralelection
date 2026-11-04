@@ -85,11 +85,14 @@ function search(q, k = 6) {
       matched++;
       const w = idf(g);
       s += w * tf * (k1 + 1) / (tf + norm);
-      if (titleSet[i].has(g)) s += w;              // title match counts roughly double
+      if (titleSet[i].has(g)) s += 2 * w;          // title match counts roughly triple
     }
     if (!s) return { c, s: 0 };
     const low = c.text.toLowerCase();
-    for (const p of phrases) if (p.length >= 3 && low.includes(p)) s += 1.5 * p.length;   // whole phrase present
+    for (const p of phrases) {
+      if (p.length >= 3 && low.includes(p)) s += 1.5 * p.length;   // whole phrase present in the passage
+      if (c.title.includes(p)) s += 2 * p.length;                  // whole phrase is part of the document title
+    }
     s *= 0.6 + 0.4 * matched / qg.length;          // reward covering more of the question
     for (const n of num) if (c.text.includes(n)) s += 8;
     if (c.doc.startsWith('appendix')) s *= 0.6;

@@ -24,30 +24,64 @@ const df = new Map();
 idx.forEach(set => set.forEach(g => df.set(g, (df.get(g) || 0) + 1)));
 
 const STOP = '需要 多少 甚麼 什麼 可以 是否 如何 怎樣 應該 有沒有 哪些 請問 能否 需否 是什 麼人 要多 少人'.split(' ');
+// Chinese → English expansion so Chinese questions also hit the English HAD documents (ro_manual / ro_forms / ro_appendices)
+const GLOSS = {
+  提名: 'nomination', 提名表格: 'nomination form', 提名期: 'nomination period', 候選人: 'candidate', 退選: 'withdrawal candidature',
+  選舉主任: 'returning officer ro', 助理選舉主任: 'assistant returning officer aro', 投票站主任: 'presiding officer pro', 民政: 'had', 總署: 'had hqs',
+  選舉廣告: 'election advertisement ea eas', 廣告: 'advertisement', 指定地點: 'designated spot', 橫額: 'banner', 海報: 'poster',
+  代理人: 'agent', 選舉代理人: 'election agent', 監察投票代理人: 'polling agent', 監察點票代理人: 'counting agent', 選舉開支代理人: 'election expense agent',
+  投票站: 'polling station', 點票站: 'counting station', 點票: 'count counting', 投票: 'poll polling', 投票日: 'polling day', 選票: 'ballot paper',
+  選民: 'elector electors', 選民登記冊: 'register electors', 選民資料: 'electors information',
+  遮蓋: 'cover covered', 公眾查閱: 'public inspection', 查閱: 'inspection inspect', 個人資料: 'personal data', 身份證: 'identity document hkid', 住址: 'address residential', 主要住址: 'principal residential address pra', 通訊地址: 'correspondence address', 出生日期: 'date of birth', 電話: 'telephone', 電郵: 'email',
+  誓言: 'oath', 宣誓: 'oath', 憲報: 'gazette', 公告: 'notice', 選舉結果: 'election result', 當選: 'elected', 無競逐: 'uncontested', 有競逐: 'contested', 有效: 'validity valid', 無效: 'invalid',
+  選舉申報書: 'election return', 申報書: 'return declaration', 選舉開支: 'election expenses', 捐贈: 'donation donations', 收據: 'receipt',
+  禁止拉票區: 'no canvassing zone ncz', 禁止逗留區: 'no staying zone nsz', 拉票: 'canvassing', 投訴: 'complaint complaints',
+  懲教: 'penal institution prison', 監獄: 'prison penal', 惡劣天氣: 'inclement weather typhoon rainstorm', 風球: 'typhoon', 黑雨: 'rainstorm',
+  方格表: 'grid paper', 候選人簡介: 'introduction to candidates', 簡介: 'introduction', 抽籤: 'lots drawing', 候選人編號: 'candidate number', 校樣: 'printing proof', 印刷: 'printing',
+  表格: 'form', 限期: 'deadline not later than by', 時限: 'deadline', 鄉事委員會: 'rural committee', 鄉郊地區: 'rural area', 鄉村: 'village', 墟鎮: 'market town',
+  街坊代表: 'kaifong representative kfr', 原居民代表: 'indigenous inhabitant representative iir', 居民代表: 'resident representative rer', 漁民: 'fishermen', 鄉郊代表: 'rural representative rr',
+  選舉呈請: 'election petition', 視障: 'visual impairment', 行動不便: 'mobility difficulties', 簡介會: 'briefing', 平台: 'platform', 中央平台: 'central platform',
+  辦公時間: 'ordinary business hours', 星期六: 'saturday', 當值: 'duty work on saturdays', 承諾書: 'undertaking', 授權: 'authorization authorisation permission', 同意: 'consent',
+  清理: 'clearance removal', 移除: 'remove removal', 貼紙: 'stickers', 保密: 'secrecy', 聲明: 'declaration', 保管: 'safe custody', 銷毀: 'destruction erasure disposal'
+};
+function expand(q) {
+  const extra = [];
+  for (const [zh, en] of Object.entries(GLOSS)) if (q.includes(zh)) extra.push(en);
+  return extra.join(' ');
+}
 const titleSet = chunks.map(c => new Set(grams(c.title)));
 function search(q, k = 6) {
-  const qg = [...new Set(grams(q))].filter(g => !STOP.includes(g));
+  const qg = [...new Set(grams(q + ' ' + expand(q)))].filter(g => !STOP.includes(g));
   const num = q.match(/\d+\.\d+/g) || [];
-  return chunks.map((c, i) => {
+  const ranked = chunks.map((c, i) => {
     let s = 0;
     for (const g of qg) if (idx[i].has(g)) s += Math.log(1 + chunks.length / df.get(g)) * (titleSet[i].has(g) ? 3 : 1);
     for (const n of num) if (c.text.includes(n)) s += 8;
     if (c.doc.startsWith('appendix')) s *= 0.6;
     return { c, s };
-  }).filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, k).map(x => x.c);
+  }).filter(x => x.s > 0).sort((a, b) => b.s - a.s);
+  // at most 3 passages per document so one long chapter does not crowd out the others
+  const perDoc = {}, out = [];
+  for (const x of ranked) { if ((perDoc[x.c.doc] || 0) >= 3) continue; perDoc[x.c.doc] = (perDoc[x.c.doc] || 0) + 1; out.push(x.c); if (out.length >= k) break; }
+  return out;
 }
 
+const pageLabel = p => typeof p === 'number' ? `第${p}頁` : String(p);
 async function ask(q) {
   const hits = search(q, 8);
   const sources = hits.map(h => ({ title: h.title, page: h.page, url: h.url, text: h.text }));
   if (!process.env.ANTHROPIC_API_KEY) return { answer: null, sources };
-  const ctx = hits.map((h, i) => `[${i + 1}] 《${h.title}》第${h.page}頁\n${h.text}`).join('\n\n');
+  const ctx = hits.map((h, i) => `[${i + 1}] 《${h.title}》${pageLabel(h.page)}\n${h.text}`).join('\n\n');
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     body: JSON.stringify({
       model: MODEL, max_tokens: 1200,
-      system: '你是2027年香港鄉郊代表選舉指引的問答助手。只根據提供的指引節錄作答，用繁體中文，簡潔清楚，並以[編號]標註引用來源。若節錄未涵蓋答案，直接說明並建議查閱選管會官方指引或致電選舉事務處。不要編造。',
+      system: `你是2027年香港鄉郊代表選舉的問答助手，用戶是選舉主任辦事處／民政處的同事。用繁體中文（可用廣東話口語），簡潔具體。
+回答分兩部分：
+1. 先直接答：用你自己的判斷，綜合節錄內容，一開始就給出結論同建議做法（例如限期、要做乜、要注意乜），唔好先列出處。
+2. 之後一段以「參考資料：」開頭，逐點引述節錄中支持答案的內容，並以[編號]標註出處。英文節錄請翻譯成中文摘要。
+節錄未涵蓋的部分要明確講明「文件冇講」，可以用常識補充但要標明係你嘅推斷，並建議查閱選管會指引或致電民政總署／選舉事務處。不要編造文件冇嘅數字或日期。`,
       messages: [{ role: 'user', content: `指引節錄：\n${ctx}\n\n問題：${q}` }]
     })
   });

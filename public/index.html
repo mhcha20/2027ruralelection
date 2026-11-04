@@ -16,7 +16,7 @@ button{padding:12px 18px;border:0;border-radius:8px;background:var(--acc);color:
 .note{color:var(--mut);font-size:.85rem}
 </style></head><body><main>
 <h1>2027 鄉郊代表選舉指引問答</h1>
-<p class="sub">資料來源：<a href="https://www.eac.hk/tc/elections/rural/rr_guide.html" style="color:var(--acc)">選管會《鄉郊代表選舉活動指引》</a>。僅供參考，一切以官方指引為準。</p>
+<p class="sub">資料來源：<a href="https://www.eac.hk/tc/elections/rural/rr_guide.html" style="color:var(--acc)">選管會《鄉郊代表選舉活動指引》</a>、民政總署《候選人提名指引》簡報、《選舉主任運作手冊》及其表格、附錄（內部文件）。答案先講結論，下面列參考資料。僅供參考，一切以官方文件為準。</p>
 <p><a href="/dates.html" style="color:var(--acc);font-weight:600">📅 重要日子一覽 →</a>　<a href="/redact.html" style="color:var(--acc);font-weight:600">🖍 提名表格遮蓋工具 →</a></p>
 <form id="f"><input id="q" placeholder="例如：選舉廣告有甚麼限制？提名需要多少人？" autofocus><button>查詢</button></form>
 <div class="chips" id="chips"></div>
@@ -28,8 +28,8 @@ const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 async function go(e){e&&e.preventDefault();const v=q.value.trim();if(!v)return;out.innerHTML='<p class="note">查詢中…</p>';
  try{const r=await fetch('/api/ask',{method:'POST',body:JSON.stringify({q:v})});const j=await r.json();if(j.error)throw new Error(j.error);
  out.innerHTML=(j.answer?`<div class="ans">${esc(j.answer)}</div>`:'<p class="note">（未設定 AI 回答，以下為最相關的指引段落）</p>')+
- (j.sources.length?'<h3>相關指引段落</h3>':'<p>找不到相關內容，請換個關鍵字。</p>')+
- j.sources.map((s,i)=>`<div class="src"><a href="${s.url}" target="_blank" rel="noopener">[${i+1}] ${esc(s.title)}　第${s.page}頁</a><p>${esc(s.text.slice(0,260))}…</p></div>`).join('')
+ (j.sources.length?'<h3>參考資料（文件原文節錄）</h3>':'<p>找不到相關內容，請換個關鍵字。</p>')+
+ j.sources.map((s,i)=>`<div class="src"><a href="${s.url}" target="_blank" rel="noopener">[${i+1}] ${esc(s.title)}　${typeof s.page==='number'?'第'+s.page+'頁':esc(String(s.page))}</a><p>${esc(s.text.slice(0,260))}…</p></div>`).join('')
  }catch(err){out.innerHTML=`<p class="note">錯誤：${esc(err.message)}</p>`}}
 f.onsubmit=go;
 </script></main></body></html>

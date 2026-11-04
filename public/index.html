@@ -26,8 +26,8 @@ const out=document.getElementById('out'),q=document.getElementById('q');
 ['提名候選人程序','選舉開支上限','選舉廣告','投票站拉票','舞弊及非法行為','投訴程序'].forEach(t=>{const s=document.createElement('span');s.textContent=t;s.onclick=()=>{q.value=t;go()};chips.append(s)});
 const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 async function go(e){e&&e.preventDefault();const v=q.value.trim();if(!v)return;out.innerHTML='<p class="note">查詢中…</p>';
- try{const r=await fetch('/api/ask',{method:'POST',body:JSON.stringify({q:v})});const j=await r.json();if(j.error)throw new Error(j.error);
- out.innerHTML=(j.answer?`<div class="ans">${esc(j.answer)}</div>`:'<p class="note">（未設定 AI 回答，以下為最相關的指引段落）</p>')+
+ try{const r=await fetch('/api/ask',{method:'POST',body:JSON.stringify({q:v})});const j=await r.json();if(j.error&&!j.sources)throw new Error(j.error);
+ out.innerHTML=(j.answer?`<div class="ans">${esc(j.answer)}</div>`:j.error?`<p class="note">AI 回答暫時失敗（${esc(j.error)}），以下為最相關的文件段落</p>`:'<p class="note">（未設定 AI 回答，以下為最相關的指引段落）</p>')+
  (j.sources.length?'<h3>參考資料（文件原文節錄）</h3>':'<p>找不到相關內容，請換個關鍵字。</p>')+
  j.sources.map((s,i)=>`<div class="src"><a href="${s.url}" target="_blank" rel="noopener">[${i+1}] ${esc(s.title)}　${typeof s.page==='number'?'第'+s.page+'頁':esc(String(s.page))}</a><p>${esc(s.text.slice(0,260))}…</p></div>`).join('')
  }catch(err){out.innerHTML=`<p class="note">錯誤：${esc(err.message)}</p>`}}

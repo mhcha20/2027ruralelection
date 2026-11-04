@@ -30,17 +30,20 @@ Q&A website over the Hong Kong EAC 2027 Rural Representative Election guidelines
 1. EAC 《鄉郊代表選舉活動指引》 — https://www.eac.hk/tc/elections/rural/rr_guide.html (PDFs at https://www.eac.hk/pdf/village/ch/<name>.pdf). If updated on eac.hk, re-download and rebuild chunks.
 2. `nomination_guide.pdf` — HAD 「2027年鄉郊一般選舉候選人提名指引」 slide deck, Oct 2026, 158 pages, uploaded by user (internal, not on eac.hk). Key content: nomination period 2026-11-24 → 2026-12-07 17:00; election days 原居民/居民代表 2027-01-17, 街坊代表 2027-01-24; slide 133 = the 14 personal-data items to cover before public inspection; slides 134–145 = officially redacted sample forms (IIR/ReR/KFR) that the built-in templates were measured from.
 3. FR nomination form (docx above) — election 2026-12-20. Redaction rules for FR are **not** in the deck; user confirmed (2026-11-03) FR is treated like IIR: full address covered.
+4. **Google Drive folder 「2027鄉郊選舉」** (id `1-UqOGfqs9a9_iylgmDkMU3Rc6SKGd36q`, owner manhey@gmail.com) — the user's reference library for large files; read via the Google Drive connector (`search_files` with `parentId`, then `read_file_content`; large PDFs come back as a saved JSON file, extract `fileContent` with jq). Holds copies of 2 and 3 plus three HAD **internal** documents (English, Oct 2026): `OM for RO ARO (20261310).pdf` (Operational Manual for ROs/AROs, 68 pp; §2.11/§2.88 redaction rule, §2.35 swap PART IV after validity decision, Action Checklist pp.55–68 with dates), `Forms (20261310).pdf` (HAD/R2–R26 specimen forms with sample data), `Appendices (20262710).pdf` (Appendix II = internal staff phone list "not to be disclosed"; Appendix IX = candidate action checklist). **Not** put in `data/pdf/` or on the server: Appendix II contact numbers and Forms sample data are internal; user hasn't asked. Dates page cites the manual as plain text via `S.om()`.
 
 ## Redaction tool (`public/redact.html`) — decisions made with the user
 - Form files are processed **only in the browser**; nothing uploaded. Export rasterises each page (pdf.js → canvas → jsPDF, cdnjs) so covered text cannot be recovered. The page header must keep saying exactly this; the user checked the wording.
 - Boxes are solid black while editing (user asked for darker). Red labels show item numbers.
 - Workflow: upload PDF/images → pick template → 「套用範本」 → adjust (drag to add, drag box to move, corner handle to resize, Delete) → 「儲存為我的範本」 → 「下載已遮蓋 PDF」.
 - Saved templates are **shared server-side** so they appear on every computer (user explicitly asked; localStorage-only version was rejected). Old localStorage templates auto-migrate on first load. JSON export/import kept as backup. Deleting a saved template is in the sidebar (「刪除所選範本」); built-in ones can't be deleted.
+- Sidebar also has a note from the Operational Manual (§2.35 PART IV swap, §2.12 HAD/R26 undertaking, §2.90 inspection form/statistics, agent forms, election return §5.7).
 - Rules shown in the sidebar: IIR/FR 主要住址 fully covered; ReR/KFR 主要住址 only cover the part other than 區域/地區/鄉村名稱; 「供傳媒及公眾查閱的聯絡資料」 is **not** covered.
 
 ## Dates page (`public/dates.html`)
 - Data is the `E` array in the file: `[ISO date | 'rel', label, 'cand'|'ro', text, source html, deadline?]`. Rows tagged `ro` are internal RO-office deadlines from the deck; `cand` are candidate-facing. Filters and "hide past" are client-side.
 - Two rows are inferred, not quoted: "投票日前10天" (2027-01-07) from chap04, and FR polling day from the form. Flag this if asked.
+- 2026-11-04: added ~20 rows from the RO/ARO Operational Manual (source helper `S.om`, plain text, document not hosted). One discrepancy flagged in-row: mobility-impaired elector re-allocation deadline — deck says 村代表 only (2027-01-12), manual also lists KFR 2027-01-19.
 
 ## Pending / ideas the user hasn't decided
 - Nice Chinese login page instead of the browser Basic-auth prompt.

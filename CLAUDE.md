@@ -2,6 +2,8 @@
 
 Q&A website over the Hong Kong EAC 2027 Rural Representative Election guidelines (鄉郊代表選舉活動指引), plus tools for the user's own election-office work (form redaction for public inspection, key-dates timeline).
 
+**所有網站一覽（12 個 repo、Railway project、部署 branch、網址）：`docs/ALL_SITES.md`。**
+
 ## How to work with the user
 - **Reply in Cantonese (廣東話)**, not written Mandarin. Keep it plain and concrete.
 - The user is not a programmer. Explain outcomes, not code. Always say what was tested and what wasn't.
@@ -15,7 +17,7 @@ Q&A website over the Hong Kong EAC 2027 Rural Representative Election guidelines
 - Live: https://web-production-81c64.up.railway.app — **whole site behind HTTP Basic auth** (env `SITE_PASSWORD`, any username). `/health` stays open. Same password is used for everything; the user wants one password only.
 - Pages: `/` 指引問答 (search + Claude answer), `/dates.html` 重要日子一覽, `/redact.html` 提名表格遮蓋工具, `/docs/nomination_guide.pdf`.
 - Railway: project `2027ruralelection` (id `18015206-13b4-41bd-b92d-adb4ba5f7ce1`), service `web` (id `9a38927e-9c1f-435a-9680-c11aa52def63`), env `production` (id `6e1df4e1-0db8-4d4f-9575-f877738fc6fa`), auto-deploys from `main`. Volume `templates` mounted at `/data`.
-- Env vars on the service: `SITE_PASSWORD`, `TEMPLATES_PASSWORD`, `TEMPLATES_DIR=/data`, `ANTHROPIC_API_KEY` (set by the user, enables AI answers).
+- Env vars on the service: `SITE_PASSWORD`, `TEMPLATES_PASSWORD`, `TEMPLATES_DIR=/data`, `ANTHROPIC_API_KEY` (set by the user, enables AI answers). `XAI_API_KEY` is also set on Railway but the code does not use it (as of 2026-11-06).
 - `railway.json`: startCommand `node server.js`, healthcheck `/health`. `server.js` handles SIGTERM with exit 0. Before this, every redeploy emailed the user "Deploy Crashed" (old container stopped under `npm start` → SIGTERM reported as failure). Deployments were in fact always SUCCESS.
 
 ## Code layout

@@ -51,7 +51,19 @@ tr.dl td.d{color:var(--hot)}
 const G='https://www.eac.hk/pdf/village/ch/';
 const S={ng:p=>`<a href="/docs/nomination_guide.pdf#page=${p}" target="_blank">提名指引簡報 p.${p}</a>`,
          g:(c,p,t)=>`<a href="${G}${c}.pdf#page=${p}" target="_blank">選管會指引 ${t} 第${p}頁</a>`,
-         om:x=>`選舉主任運作手冊（2026年10月）${x}`,
+         om:x=>{
+           const file='/docs/ro_manual.pdf';
+           const sec={'2.7':12,'2.8':12,'2.16':17,'2.51':28,'2.80':37,'2.81':37,'2.84':38,'2.85':39,'4.5':48,'4.17':52,'5.7':56};
+           const body=x
+             .replace(/§(\d+\.\d+)(?:\([^)]*\))?(?:[\u2013-]\d+\.\d+)?/g,(m,n)=>{
+               const pg=sec[n];
+               return pg?`<a href="${file}#page=${pg}" target="_blank">${m}</a>`:m;
+             })
+             .replace(/行動清單 p\.(\d+)(?:[\u2013-]\d+)?/g,(m,n)=>`<a href="${file}#page=${+n+4}" target="_blank">${m}</a>`);
+           if((body.match(/<a /g)||[]).length===1)
+             return body.replace(/<a ([^>]+)>([^<]+)<\/a>/,(m,attrs,text)=>`<a ${attrs}>選舉主任運作手冊（2026年10月）${text}</a>`);
+           return `選舉主任運作手冊（2026年10月）${body}`;
+         },
          br:p=>`<a href="/docs/ro_briefing.pdf#page=${p}" target="_blank">選舉主任簡介會 p.${p}</a>`};
 // [date(ISO) or 'rel', label, who(cand|ro), text, source, deadline?]
 const E=[

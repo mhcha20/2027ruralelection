@@ -1,8 +1,9 @@
-// Zero-dependency server: static site + /api/search + /api/ask (Claude, optional)
+// Zero-dependency server: static site + /api/search + /api/ask (xAI, or Claude if no xAI key)
 const http = require('http'), fs = require('fs'), path = require('path');
 const chunks = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/chunks.json'), 'utf8'));
 const PORT = process.env.PORT || 3000;
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
+const XAI_MODEL = process.env.XAI_MODEL || 'grok-4.3';
 // Shared redaction templates (persisted; set TEMPLATES_DIR to a mounted volume on Railway)
 const TPL_DIR = process.env.TEMPLATES_DIR || path.join(__dirname, 'data');
 const TPL_FILE = path.join(TPL_DIR, 'my-templates.json');
@@ -105,27 +106,47 @@ function search(q, k = 6) {
 }
 
 const pageLabel = p => typeof p === 'number' ? `第${p}頁` : String(p);
-async function ask(q) {
-  const hits = search(q, 8);
-  const sources = hits.map(h => ({ title: h.title, page: h.page, url: h.url, text: h.text }));
-  if (!process.env.ANTHROPIC_API_KEY) return { answer: null, sources };
-  const ctx = hits.map((h, i) => `[${i + 1}] 《${h.title}》${pageLabel(h.page)}\n${h.text}`).join('\n\n');
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({
-      model: MODEL, max_tokens: 1200,
-      system: `你是2027年香港鄉郊代表選舉的問答助手，用戶是選舉主任辦事處／民政處的同事。用繁體中文（可用廣東話口語），簡潔具體。
+const ASK_SYSTEM = `你是2027年香港鄉郊代表選舉的問答助手，用戶是選舉主任辦事處／民政處的同事。用繁體中文（可用廣東話口語），簡潔具體。
 回答分兩部分：
 1. 先直接答：用你自己的判斷，綜合節錄內容，一開始就給出結論同建議做法（例如限期、要做乜、要注意乜），唔好先列出處。
 2. 之後一段以「參考資料：」開頭，逐點引述節錄中支持答案的內容，並以[編號]標註出處。英文節錄請翻譯成中文摘要。
-節錄未涵蓋的部分要明確講明「文件冇講」，可以用常識補充但要標明係你嘅推斷，並建議查閱選管會指引或致電民政總署／選舉事務處。不要編造文件冇嘅數字或日期。`,
-      messages: [{ role: 'user', content: `指引節錄：\n${ctx}\n\n問題：${q}` }]
-    })
-  });
-  const j = await r.json();
-  if (!r.ok) return { answer: null, error: j.error?.message || 'API error', sources };   // still show the passages
-  return { answer: j.content.map(b => b.text || '').join(''), sources };
+節錄未涵蓋的部分要明確講明「文件冇講」，可以用常識補充但要標明係你嘅推斷，並建議查閱選管會指引或致電民政總署／選舉事務處。不要編造文件冇嘅數字或日期。`;
+async function ask(q) {
+  const hits = search(q, 8);
+  const sources = hits.map(h => ({ title: h.title, page: h.page, url: h.url, text: h.text }));
+  const xai = process.env.XAI_API_KEY;
+  const anthropic = process.env.ANTHROPIC_API_KEY;
+  if (!xai && !anthropic) return { answer: null, sources };
+  const ctx = hits.map((h, i) => `[${i + 1}] 《${h.title}》${pageLabel(h.page)}\n${h.text}`).join('\n\n');
+  const user = `指引節錄：\n${ctx}\n\n問題：${q}`;
+  // Prefer xAI when XAI_API_KEY is set (Anthropic credits may be empty).
+  const r = xai
+    ? await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${xai}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: XAI_MODEL, max_tokens: 1200, temperature: 0.2,
+          messages: [{ role: 'system', content: ASK_SYSTEM }, { role: 'user', content: user }]
+        })
+      })
+    : await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': anthropic, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: MODEL, max_tokens: 1200, system: ASK_SYSTEM,
+          messages: [{ role: 'user', content: user }]
+        })
+      });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = (j.error && (j.error.message || j.error)) || j.message || 'API error';
+    return { answer: null, error: typeof msg === 'string' ? msg : 'API error', sources };
+  }
+  const answer = xai
+    ? (j.choices?.[0]?.message?.content || '')
+    : j.content.map(b => b.text || '').join('');
+  if (!answer.trim()) return { answer: null, error: '模型冇返回內容', sources };
+  return { answer, sources };
 }
 
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.pdf': 'application/pdf', '.json': 'application/json' };
@@ -168,7 +189,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'DELETE' && key) { const all = readTpl(); delete all[key]; writeTpl(all); return json({ ok: true }); }
       return json({ error: 'method' }, 405);
     }
-    if (u.pathname === '/health') return json({ ok: true, chunks: chunks.length, ai: !!process.env.ANTHROPIC_API_KEY });
+    if (u.pathname === '/health') return json({ ok: true, chunks: chunks.length, ai: !!(process.env.XAI_API_KEY || process.env.ANTHROPIC_API_KEY), provider: process.env.XAI_API_KEY ? 'xai' : (process.env.ANTHROPIC_API_KEY ? 'anthropic' : null) });
     const docs = u.pathname.startsWith('/docs/') ? path.join(__dirname, 'data/pdf', path.basename(u.pathname)) : null;
     const f = docs || path.join(__dirname, 'public', u.pathname === '/' ? 'index.html' : u.pathname);
     if (!(docs || f.startsWith(path.join(__dirname, 'public'))) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end('Not found'); }
